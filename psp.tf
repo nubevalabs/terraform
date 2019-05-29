@@ -43,12 +43,17 @@ variable "NetworkTooHighThreshold" {
 
 variable "InstanceType" {
   type = "string"
-  default = "r4.large"
+  default = "r5.large"
 }
 
 variable "IsDevelopmentVersion" {
   type = "string"
   default = "false"
+}
+
+variable "Branch" {
+  type = "string"
+  default = "master"
 }
 
 variable "NuToken" {
@@ -104,6 +109,24 @@ data "aws_ami" "latest_ecs" {
     name   = "virtualization-type"
     values = ["hvm"]
   }
+}
+
+resource "aws_dynamodb_table" "PSPDB" {
+
+  hash_key = "Name"
+  name = "${var.PSPID}"
+  tags {
+    NubevaPSPName = "${local.psp_name}"
+  }
+
+  write_capacity = 5
+  read_capacity = 5
+
+  attribute {
+    name = "Name"
+    type = "S"
+  }
+
 }
 
 data "template_file" "user_data" {
@@ -179,16 +202,14 @@ resource "aws_iam_role_policy" "NubevaIAMPolicy" {
     },
     {
       "Action": [
-        "sdb:ListDomains"
-      ],
-      "Resource": "*",
-      "Effect": "Allow"
-    },
-    {
-      "Action": [
-        "sdb:*"
-      ],
-      "Resource": "arn:aws:sdb:*:${data.aws_caller_identity.current.account_id}:domain/${var.PSPID}",
+                "dynamodb:PutItem",
+                "dynamodb:GetItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:DescribeTable",
+                "dynamodb:Scan"
+                  ],
+      "Resource": "${aws_dynamodb_table.PSPDB.arn}",
       "Effect": "Allow"
     },
     {
@@ -247,6 +268,7 @@ resource "aws_iam_role_policy" "NubevaIAMPolicy" {
 }
 
 resource "aws_ecs_cluster" "PSPCluster" {
+  depends_on = ["aws_dynamodb_table.PSPDB"]
   name = "nubevapsp-${local.psp_name}"
 }
 
@@ -327,7 +349,7 @@ resource "aws_ecs_task_definition" "DataPathTask" {
     }
   ],
   "Name": "psp-data",
-  "Image": "${var.IsDevelopmentVersion == "false" ? "nubeva/psp" : "nubeva/psp:master"}",
+  "Image": "${var.IsDevelopmentVersion == "false" ? "nubeva/psp" : "nubeva/psp:${var.Branch}"}",
   "Privileged": true,
   "Environment": [
     {
@@ -473,7 +495,7 @@ resource "aws_ecs_task_definition" "ControlPathTask" {
       "${var.Alias}.${var.Namespace}:4789"
     ],
     "Name": "psp-control",
-  "Image": "${var.IsDevelopmentVersion == "false" ? "nubeva/psp-control" : "nubeva/psp-control:master"}",
+  "Image": "${var.IsDevelopmentVersion == "false" ? "nubeva/psp-control" : "nubeva/psp-control:${var.Branch}"}",
     "Essential": true,
     "Environment": [
       {

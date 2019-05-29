@@ -1,7 +1,6 @@
 region = ""
 KeyName = ""
-VPC = "vpc-1111111111111"
-PrivateSubnets = ["subnet-1111111111"]
+VPC = "<VPC-ID>"
+PrivateSubnets = ["<subnet1-id>","<subnet2-id>","<2 or more for HA>"]
 NuToken = ""
 PSPID = ""
-Namespace = ""
