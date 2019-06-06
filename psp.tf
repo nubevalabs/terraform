@@ -75,8 +75,15 @@ variable "ProjectID" {
 variable "BackendURL" {
   type = "string"
   description = "Nubeva Prisms backend API URL"
-  default = "https://i.nuos.io/api/1.1/wf"
+  default = "https://i.nuos.io/api/1.1/wf/"
 }
+
+variable "UpdateCloudAPI" {
+  type = "string"
+  description = "Update PSP cloud API"
+  default = "psp_update_as_custom"
+}
+
 variable "region" {
   type = "string"
   description = "AWS Region to deploy to"
@@ -99,6 +106,11 @@ data "aws_caller_identity" "current" {}
 data "aws_ami" "latest_ecs" {
   most_recent = true
   owners = ["591542846629"] # AWS
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
 
   filter {
     name   = "name"
@@ -568,6 +580,13 @@ resource "aws_cloudwatch_metric_alarm" "NetworkTooLowAlarm" {
   threshold = "${var.NetworkTooLowThreshold}"
   dimensions {
     AutoScalingGroupName = "${aws_autoscaling_group.PSPAutoScalingGroup.name}"
+  }
+}
+
+# Update the PSP cloud value to reflect usage of a custom template
+resource "null_resource" "nubeva-backend" {
+  provisioner "local-exec" {
+    command = "curl --data \"pspid=${var.PSPID}\" ${var.BackendURL}${var.UpdateCloudAPI}"
   }
 }
 
